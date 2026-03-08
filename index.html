@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>
+        Enterprise Loan Portfolio Tracker
+    </title>
+    <link href="index_style_1.css" rel="stylesheet" />
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div>
+                <h2 style="margin: 0; line-height: 1;">
+                    Amortizer
+                </h2>
+                <small
+                    style="color: var(--secondary); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Version
+                    4.2.0
+                </small>
+                <span id="syncStatus"
+                    style="font-size: 0.7rem; color: #166534; background: #dcfce7; padding: 2px 6px; border-radius: 4px; display: none;">
+                </span>
+            </div>
+            <div class="file-controls">
+                <div style="text-align: right; margin-right: 10px;">
+                    <div id="lastActionLabel"
+                        style="font-size: 0.65rem; color: var(--secondary); font-weight: bold; text-transform: uppercase;">
+                        No file
+                        activity
+                    </div>
+                    <div id="timestamp" style="font-size: 0.75rem; font-family: monospace; color: #1e293b;">
+                        --:--:--
+                    </div>
+                </div>
+                <button onclick="exportToExcel()" class="accent" style="background: #16a34a;">
+                    Save to Excel
+                </button>
+                <button class="secondary" onclick="exportToJson()">
+                    Save
+                </button>
+                <button class="accent" onclick="document.getElementById('fileInput').click()">
+                    Load
+                </button>
+                <button class="danger" onclick="clearAllData()" style="height: 38px; padding: 0 15px;">
+                    Clear
+                    All
+                </button>
+                <input accept=".json" id="fileInput" onchange="importFromJson(event)" type="file" />
+                <div style="width: 2px; height: 30px; background: #cbd5e1; margin: 0 10px;">
+                </div>
+                <input id="newBorrowerName" placeholder="Borrower Name" type="text" />
+                <button onclick="addBorrower()">
+                    + Add Borrower
+                </button>
+            </div>
+        </header>
+        <hr style="color: #cbd5e1; margin: 20px 0;" />
+        <div class="borrower-nav" id="borrowerTabs">
+        </div>
+        <div id="mainContent" style="display:none;">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between;">
+                    <h3>
+                        Manage Loans:
+                        <span id="activeBorrowerTitle">
+                        </span>
+                    </h3>
+                    <button class="danger" onclick="deleteCurrentBorrower()">
+                        Delete Borrower
+                    </button>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <h5>
+                            Total Principal Due
+                        </h5>
+                        <div class="value" id="statTotalBal">
+                            ₹0
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h5>
+                            Monthly Obligation
+                        </h5>
+                        <div class="value" id="statMonthly">
+                            ₹0
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h5>
+                            Active Loans
+                        </h5>
+                        <div class="value" id="statCount">
+                            0
+                        </div>
+                    </div>
+                </div>
+                <div class="section-header">
+                    Loan Parameters
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; display: grid; gap: 20px;">
+
+                    <!-- Section 1: Identity & Amount -->
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label>Loan Name</label>
+                        <input id="lName" placeholder="e.g. HDFC Term Loan" type="text" />
+                    </div>
+
+                    <div style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="input-group">
+                            <label>Principal Amount</label>
+                            <input id="p" placeholder="₹" type="number" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>First EMI Date</label>
+                            <input id="dDate" type="date" />
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Timeline -->
+                    <div class="input-group">
+                        <label>Total Tenure (Months)</label>
+                        <input id="t" type="number" value="12" />
+                    </div>
+
+                    <div class="input-group">
+                        <label>Moratorium Period (Mo)</label>
+                        <input id="moraMonths" type="number" value="0" />
+                    </div>
+
+                    <div class="input-group">
+                        <label>Moratorium Interest</label>
+                        <select id="mType">
+                            <option value="interestOnly">Pay Interest Only</option>
+                            <option value="noPayment">Capitalize Interest</option>
+                        </select>
+                    </div>
+
+                    <!-- Section 3: Calculation Engine -->
+                    <div
+                        style="grid-column: 1 / -1; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: flex; gap: 20px; align-items: center;">
+                            <label style="margin: 0;">Calculate via:</label>
+                            <label
+                                style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="calcMode" value="roi" checked onchange="toggleCalcMode()">
+                                Given ROI
+                            </label>
+                            <label
+                                style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: normal;">
+                                <input type="radio" name="calcMode" value="emi" onchange="toggleCalcMode()"> Given EMI
+                            </label>
+                        </div>
+
+                        <div style="display: flex; gap: 20px; align-items: end;">
+                            <div class="input-group" id="roiInputGroup" style="flex: 1; max-width: 200px;">
+                                <label>ROI % (Yearly)</label>
+                                <input id="r" step="0.1" type="number" value="10" />
+                            </div>
+
+                            <div class="input-group" id="emiInputGroup"
+                                style="flex: 1; max-width: 200px; display: none;">
+                                <label>Target EMI Amount</label>
+                                <input id="targetEMI" placeholder="₹" type="number" />
+                            </div>
+
+                            <div class="input-group"
+                                style="flex-direction: row; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <input id="isNonEmi" style="width: 16px; height: 16px; cursor: pointer;"
+                                    type="checkbox" />
+                                <label for="isNonEmi"
+                                    style="cursor: pointer; text-transform: none; font-size: 0.85rem;">
+                                    Flat Principal Repayment
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action -->
+                    <div style="grid-column: 1 / -1; margin-top: 10px; display: flex; gap: 10px;">
+                        <button onclick="addLoan()" style="flex: 1; padding: 12px; font-size: 1rem;">
+                            Add Loan to Portfolio
+                        </button>
+                    </div>
+                </div>
+                <div class="section-header" style="margin-top: 30px;">
+                    Active Loans List
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="text-align: left;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center; width: 40px;">
+                                    <input checked="" id="selectAllBox" onclick="toggleAllLoans(this)"
+                                        type="checkbox" />
+                                </th>
+                                <th style="text-align: left;">
+                                    Loan Name
+                                </th>
+                                <th style="text-align: center;">
+                                    First EMI Date
+                                </th>
+                                <th style="text-align: center;">
+                                    Principal
+                                </th>
+                                <th style="text-align: center;">
+                                    ROI
+                                </th>
+                                <th style="text-align: center;">
+                                    Tenure
+                                </th>
+                                <th style="text-align: center;">
+                                    Moratorium(Mo)
+                                </th>
+                                <th style="text-align: center;">
+                                    EMI (Rs.)
+                                </th>
+                                <th>
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="loanListBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <h3>
+                    Consolidated Fiscal Analysis &amp; Liability Breakdown
+                </h3>
+                <div class="table-scroll-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>
+                                    Fiscal Year
+                                </th>
+                                <th>
+                                    Opening Bal
+                                </th>
+                                <th>
+                                    Interest Paid
+                                </th>
+                                <th>
+                                    Principal Paid
+                                </th>
+                                <th>
+                                    Closing Bal
+                                </th>
+                                <th>
+                                    Current Liability (Next 12m)
+                                </th>
+                                <th>
+                                    Long Term Liability
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="fiscalBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card">
+                <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>
+                        Monthly Amortization Schedule
+                    </span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="margin: 0;">
+                            Filter Loan:
+                        </label>
+                        <select id="loanFilter" onchange="updateDisplay()" style="padding: 5px;">
+                            <option value="all">
+                                All Loans
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-scroll-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; color: #94a3b8; width: 40px;">
+                                    #
+                                </th>
+                                <th style="text-align: left;">
+                                    Date
+                                </th>
+                                <th style="text-align: left;">
+                                    Loan Name
+                                </th>
+                                <th>
+                                    Opening Balance
+                                </th>
+                                <th>
+                                    EMI / Payment
+                                </th>
+                                <th>
+                                    Interest
+                                </th>
+                                <th>
+                                    Principal
+                                </th>
+                                <th>
+                                    Closing Balance
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="emiScheduleBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Documentation Modal -->
+    <div class="modal-overlay" id="docModal" onclick="if(event.target === this) closeDoc()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0;">
+                    Application Documentation
+                </h3>
+                <div class="close-btn" onclick="closeDoc()">
+                    ×
+                </div>
+            </div>
+            <div class="doc-section">
+                <h4>
+                    1. Overview
+                </h4>
+                <p>
+                    Amortizer is an enterprise-grade loan portfolio management tool. It allows you to track multiple
+                    borrowers and their respective loan facilities, providing deep insights into fiscal year liabilities
+                    and detailed amortization schedules.
+                </p>
+            </div>
+            <div class="doc-section">
+                <h4>
+                    2. Loan Configuration
+                </h4>
+                <ul>
+                    <li>
+                        <strong>
+                            Principal:
+                        </strong>
+                        The sanctioned loan facility.
+                    </li>
+                    <li>
+                        <strong>
+                            Tenure (Mo):
+                        </strong>
+                        The TOTAL tenure of the loan, including any moratorium period.
+                    </li>
+                    <li>
+                        <strong>
+                            Moratorium (Mo):
+                        </strong>
+                        The number of months at the start of the loan where principal
+                        repayment is paused.
+                        <ul>
+                            <li>
+                                <em>
+                                    Interest Only:
+                                </em>
+                                Only interest is paid during the gap.
+                            </li>
+                            <li>
+                                <em>
+                                    No Payment:
+                                </em>
+                                Interest is capitalized (added to principal).
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>
+                            Start Date:
+                        </strong>
+                        The date when the loan was disbursed. First EMI will be due after
+                        the Moratorium period ends.
+                    </li>
+                    <li>
+                        <strong>
+                            Non-EMI Mode:
+                        </strong>
+                        Instead of fixed payments, the principal is divided equally over
+                        the repayment tenure, and interest is calculated on the reducing balance.
+                    </li>
+                </ul>
+            </div>
+            <div class="doc-section">
+                <h4>
+                    3. Fiscal Analysis
+                </h4>
+                <p>
+                    The system automatically groups all payments into standard Indian Fiscal Years (April to March). It
+                    calculates:
+                </p>
+                <ul>
+                    <li>
+                        <strong>
+                            Current Liability:
+                        </strong>
+                        Total principal due in the next 12 months.
+                    </li>
+                    <li>
+                        <strong>
+                            Long Term Liability:
+                        </strong>
+                        Remaining principal due after 12 months.
+                    </li>
+                </ul>
+            </div>
+            <div class="doc-section">
+                <h4>
+                    4. Data Management
+                </h4>
+                <p>
+                    <strong>
+                        Local Storage:
+                    </strong>
+                    Your data is saved locally in your browser. Clearing your browser
+                    cache or using "Clear All" will remove the data.
+                </p>
+                <p>
+                    <strong>
+                        Export/Import:
+                    </strong>
+                    Use the JSON buttons at the top to backup your data or move it to a
+                    different device.
+                </p>
+            </div>
+            <div style="text-align: center; margin-top: 30px;">
+                <button onclick="closeDoc()" style="padding: 10px 40px;">
+                    Got it!
+                </button>
+            </div>
+        </div>
+    </div>
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>
+                    Built by Brijanya Sharma
+                </h4>
+                <p style="font-size: 0.8rem; color: #64748b;">
+                    Built with precision for financial accuracy.
+                </p>
+            </div>
+            <div class="footer-section">
+                <h4>
+                    Quick Links
+                </h4>
+                <p>
+                    <a onclick="openDoc()">
+                        Documentation
+                    </a>
+                </p>
+                <p>
+                    <a href="mailto:brijanya@outlook.com">
+                        Support
+                    </a>
+                </p>
+            </div>
+            <div class="footer-section">
+                <h4>
+                    Contact Details
+                </h4>
+                <p>
+                    <strong>
+                        Phone:
+                    </strong>
+                    +91 70184 87271
+                </p>
+                <p>
+                    <strong>
+                        Email:
+                    </strong>
+                    <a href="mailto:brijanya@outlook.com">
+                        brijanya@outlook.com
+                    </a>
+                </p>
+                <p>
+                    <strong>
+                        Current Location:
+                    </strong>
+                    Ratnagiri, Maharashtra, India
+                </p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2025 Amortizer Portfolio Tracker. All rights reserved. Data is stored locally in your browser.
+        </div>
+    </footer>
+    <script src="index_script_1.js">
+    </script>
+</body>
+
+</html>
